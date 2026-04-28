@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sales Tracker</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: #080808; color: #FFF; margin: 0; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+
+        .input-group { position: relative; width: 100%; }
+        .input-group label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.15em; color: #555; text-transform: uppercase; margin-bottom: 7px; padding-left: 2px; }
+        .input-group .input-icon { position: absolute; left: 15px; bottom: 14px; font-size: 15px; pointer-events: none; }
+        .input-group input {
+            background: #111; border: 1.5px solid #222; color: #FFF;
+            padding: 14px 14px 14px 42px; border-radius: 14px; width: 100%;
+            font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif;
+            transition: all 0.2s; -webkit-appearance: none;
+        }
+        .input-group input.no-icon { padding-left: 14px; }
+        .input-group input::placeholder { color: #383838; font-weight: 500; }
+        .input-group input:focus { outline: none; border-color: #FF2222; background: #130000; box-shadow: 0 0 0 3px rgba(255,34,34,0.07); }
+
+        .btn { border-radius: 13px; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; border: none; padding: 14px 18px; font-family:'Inter',sans-serif; }
+        .btn:active { transform: scale(0.96); }
+        .btn-red { background: linear-gradient(135deg,#FF1111,#CC0000); color:#FFF; box-shadow: 0 4px 18px rgba(255,0,0,0.22); }
+        .btn-white { background:#FFF; color:#000; }
+        .btn-ghost { background:#161616; color:#888; border:1.5px solid #222; }
+        .btn-ghost:hover { color:#FFF; border-color:#3A3A3A; }
+        .btn-danger { background:#130000; color:#FF5555; border:1.5px solid #2A0000; }
+        .btn-sm { padding: 9px 15px; font-size: 11px; border-radius: 10px; }
+        .btn-icon { width:42px; height:42px; padding:0; border-radius:11px; font-size:16px; }
+
+        .card { background:#0D0D0D; border:1.5px solid #1A1A1A; border-radius:22px; }
+        .divider { border:none; border-top:1px solid #181818; margin:0; }
+        .glass { background:rgba(8,8,8,0.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+
+        .badge { display:inline-flex; align-items:center; padding:4px 10px; border-radius:7px; font-size:10px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; }
+        .badge-green { background:rgba(34,197,94,0.1); color:#22c55e; }
+        .badge-yellow { background:rgba(234,179,8,0.1); color:#eab308; }
+        .badge-red { background:rgba(255,50,50,0.1); color:#FF5555; }
+        .badge-gray { background:#1A1A1A; color:#666; }
+        .badge-accent { background:rgba(255,17,17,0.1); color:#FF4444; }
+
+        .filter-pill { padding:8px 16px; border-radius:100px; font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; border:1.5px solid #1E1E1E; background:#0D0D0D; color:#444; transition:all 0.2s; cursor:pointer; flex-shrink:0; font-family:'Inter',sans-serif; }
+        .filter-pill.active { background:#FF1111; color:#FFF; border-color:#FF1111; box-shadow:0 3px 12px rgba(255,17,17,0.28); }
+
+        .nav-item { display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 14px; border-radius:14px; transition:all 0.2s; cursor:pointer; border:none; background:transparent; font-family:'Inter',sans-serif; }
+        .nav-item.active { background:#160000; }
+        .nav-item .nav-label { font-size:9px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; }
+        .nav-item.active .nav-label { color:#FF2222; }
+        .nav-item:not(.active) .nav-label { color:#444; }
+        .nav-icon { font-size:17px; line-height:1; }
+
+        .revenue-card { background:linear-gradient(135deg,#150000,#220000); border:1.5px solid #3A0000; border-radius:24px; padding:24px; position:relative; overflow:hidden; }
+        .revenue-card::before { content:''; position:absolute; top:-30px; right:-30px; width:100px; height:100px; background:rgba(255,0,0,0.05); border-radius:50%; }
+
+        .product-row { background:#0D0D0D; border:1.5px solid #1A1A1A; border-radius:18px; padding:14px; display:flex; align-items:center; gap:12px; transition:all 0.15s; cursor:pointer; }
+        .product-row:hover { border-color:#2A2A2A; }
+        .product-row:active { transform:scale(0.98); border-color:#FF2222; }
+        .product-row.disabled { opacity:0.3; cursor:not-allowed; pointer-events:none; }
+
+        .stat-label { font-size:9px; font-weight:800; letter-spacing:0.2em; color:#444; text-transform:uppercase; margin-bottom:6px; }
+
+        .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:#1C1C1C; color:#FFF; padding:11px 22px; border-radius:100px; font-size:12px; font-weight:700; z-index:9999; border:1px solid #2A2A2A; white-space:nowrap; box-shadow:0 8px 24px rgba(0,0,0,0.5); font-family:'Inter',sans-serif; }
+
+        @keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+        .anim-slide { animation:slideUp 0.25s ease-out forwards; }
+        .anim-fade  { animation:fadeIn  0.2s ease-out forwards; }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    const db = new Dexie("AliShopDB_v4");
+    db.version(1).stores({ products:'++id,name', sales:'++id,date', shopInfo:'++id' });
+
+    function Toast({ msg }) {
+        return msg ? <div className="toast anim-fade">{msg}</div> : null;
+    }
+
+    function App() {
+        const [shopInfo,        setShopInfo]        = useState(null);
+        const [view,            setView]            = useState('dashboard');
+        const [products,        setProducts]        = useState([]);
+        const [sales,           setSales]           = useState([]);
+        const [isAdding,        setIsAdding]        = useState(false);
+        const [sellingProduct,  setSellingProduct]  = useState(null);
+        const [filter,          setFilter]          = useState('all');
+        const [logoBase64,      setLogoBase64]      = useState(null);
+        const [productImg,      setProductImg]      = useState(null);
+        const [searchQuery,     setSearchQuery]     = useState('');
+        const [toast,           setToast]           = useState('');
+        const [confirmDel,      setConfirmDel]      = useState(null);
+
+        const shopFileRef    = useRef(null);
+        const productFileRef = useRef(null);
+
+        const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
+        const refreshData = async () => {
+            const info = await db.shopInfo.toArray();
+            if (info.length > 0) setShopInfo(info[0]);
+            setProducts(await db.products.toArray());
+            setSales(await db.sales.orderBy('date').reverse().toArray());
+        };
+
+        useEffect(() => { refreshData(); }, []);
+
+        const filteredSales = useMemo(() => {
+            const now = new Date();
+            return sales.filter(s => {
+                const d = new Date(s.date);
+                if (filter === 'daily')   return d.toDateString() === now.toDateString();
+                if (filter === 'weekly')  { const w = new Date(now); w.setDate(now.getDate()-7); return d >= w; }
+                if (filter === 'monthly') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+                return true;
+            });
+        }, [sales, filter]);
+
+        const sellFiltered = useMemo(() =>
+            products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())),
+        [products, searchQuery]);
+
+        const totalRev    = filteredSales.reduce((a,s)=>a+s.total,0);
+        const totalProfit = filteredSales.reduce((a,s)=>a+(s.profit||0),0);
+        const totalCost   = totalRev - totalProfit;
+        const allRev      = sales.reduce((a,s)=>a+s.total,0);
+        const allProfit   = sales.reduce((a,s)=>a+(s.profit||0),0);
+
+        const handleFile = (e, cb) => {
+            const f = e.target.files[0]; if (!f) return;
+            const r = new FileReader(); r.onloadend = () => cb(r.result); r.readAsDataURL(f);
+        };
+
+        const deleteProduct = async (id) => {
+            await db.products.delete(id); setConfirmDel(null);
+            showToast('Product deleted'); refreshData();
+        };
+
+        const exportPDF = () => {
+            const { jsPDF } = window.jspdf; const doc = new jsPDF(); let y=30;
+            doc.setFillColor(10,10,10); doc.rect(0,0,210,50,'F');
+            if (shopInfo.logo) { try { doc.addImage(shopInfo.logo,'JPEG',20,10,30,30); } catch(e){} }
+            doc.setTextColor(255,255,255); doc.setFontSize(20); doc.setFont('helvetica','bold');
+            doc.text(shopInfo.shopName.toUpperCase(), shopInfo.logo?60:105, 24, {align:shopInfo.logo?'left':'center'});
+            doc.setFontSize(9);
+            doc.text(`SALES REPORT — ${filter.toUpperCase()}`, shopInfo.logo?60:105, 35, {align:shopInfo.logo?'left':'center'});
+            y=65; doc.setTextColor(0,0,0); doc.setFontSize(10);
+            doc.text(`Txns: ${filteredSales.length}   Revenue: Rs.${totalRev.toLocaleString()}   Profit: Rs.${totalProfit.toLocaleString()}`, 20, y);
+            y+=14; doc.setFillColor(230,230,230); doc.rect(20,y,170,9,'F'); doc.setFontSize(8);
+            doc.text('ITEMS',25,y+6); doc.text('DATE',98,y+6); doc.text('REVENUE',148,y+6,{align:'right'}); doc.text('PROFIT',190,y+6,{align:'right'});
+            y+=9;
+            filteredSales.forEach(s => {
+                if(y>272){doc.addPage();y=20;}
+                doc.text(s.items.map(i=>`${i.name}x${i.qty}`).join(', ').substring(0,42),25,y+6);
+                doc.text(new Date(s.date).toLocaleDateString(),98,y+6);
+                doc.text(`Rs.${s.total.toLocaleString()}`,148,y+6,{align:'right'});
+                doc.text(`Rs.${(s.profit||0).toLocaleString()}`,190,y+6,{align:'right'});
+                y+=9;
+            });
+            doc.setFontSize(7); doc.setTextColor(160,160,160);
+            doc.text(`Generated by ${shopInfo.shopName} | Made by Qasim Ali`, 105,288,{align:'center'});
+            doc.save(`${shopInfo.shopName}-${filter}.pdf`);
+            showToast('PDF exported!');
+        };
+
+        /* ── SETUP SCREEN ──────────────────────────────── */
+        if (!shopInfo) return (
+            <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px',background:'#050505'}}>
+                <div className="card anim-slide" style={{width:'100%',maxWidth:'360px',padding:'32px'}}>
+                    <div style={{textAlign:'center',marginBottom:'28px'}}>
+                        <div onClick={() => shopFileRef.current.click()} style={{width:'72px',height:'72px',borderRadius:'20px',margin:'0 auto 16px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',overflow:'hidden',border:'2px dashed #222',background:'#111',transition:'border-color 0.2s'}}>
+                            {logoBase64 ? <img src={logoBase64} style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <div style={{textAlign:'center'}}><div style={{fontSize:'24px'}}>🏪</div><p style={{fontSize:'8px',fontWeight:800,color:'#333',textTransform:'uppercase',marginTop:'4px'}}>Logo</p></div>}
+                            <input type="file" ref={shopFileRef} onChange={e=>handleFile(e,setLogoBase64)} style={{display:'none'}} accept="image/*"/>
+                        </div>
+                        <h1 style={{fontSize:'26px',fontWeight:900,color:'#FFF',margin:'0 0 4px'}}>Setup Shop</h1>
+                        <p style={{fontSize:'12px',color:'#444',fontWeight:500}}>Enter your details to get started</p>
+                    </div>
+                    <form onSubmit={async e => {
+                        e.preventDefault();
+                        const data = { shopName:e.target.shop.value, ownerName:e.target.owner.value, logo:logoBase64 };
+                        await db.shopInfo.add(data); setShopInfo(data);
+                    }} style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+                        <div className="input-group">
+                            <label>Shop Name</label>
+                            <span className="input-icon">🏪</span>
+                            <input name="shop" placeholder="e.g. Ali Toy Shop" required/>
+                        </div>
+                        <div className="input-group">
+                            <label>Owner Name</label>
+                            <span className="input-icon">👤</span>
+                            <input name="owner" placeholder="e.g. Qasim Ali" required/>
+                        </div>
+                        <button type="submit" className="btn btn-red" style={{marginTop:'4px'}}>✓ Launch Business</button>
+                    </form>
+                </div>
+            </div>
+        );
+
+        /* ── MAIN APP ──────────────────────────────────── */
+        return (
+            <div style={{maxWidth:'430px',margin:'0 auto',minHeight:'100vh',display:'flex',flexDirection:'column',background:'#080808',position:'relative'}}>
+
+                {/* Header */}
+                <header className="glass" style={{padding:'14px 18px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid #141414',position:'sticky',top:0,zIndex:30}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                        {shopInfo.logo
+                            ? <img src={shopInfo.logo} style={{width:'36px',height:'36px',borderRadius:'10px',objectFit:'cover',border:'1px solid #222'}}/>
+                            : <div style={{width:'36px',height:'36px',borderRadius:'10px',background:'#1A0000',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px'}}>🏪</div>
+                        }
+                        <div>
+                            <p style={{fontWeight:900,fontSize:'14px',color:'#FFF',lineHeight:1.2}}>{shopInfo.shopName}</p>
+                            <p style={{fontSize:'9px',fontWeight:600,color:'#444',textTransform:'uppercase',letterSpacing:'0.15em'}}>{shopInfo.ownerName}</p>
+                        </div>
+                    </div>
+                    <button className="btn btn-ghost btn-sm" onClick={async () => { if(confirm('Reset all data? This cannot be undone.')) { await db.delete(); window.location.reload(); } }}>⚠ Reset</button>
+                </header>
+
+                {/* Content */}
+                <main style={{flex:1,padding:'20px 16px 120px',overflowY:'auto'}} className="anim-slide">
+
+                    {/* DASHBOARD */}
+                    {view==='dashboard' && (
+                        <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+                            <div><h2 style={{fontSize:'28px',fontWeight:900,color:'#FFF',margin:0}}>Dashboard</h2><p style={{fontSize:'11px',color:'#444',marginTop:'3px'}}>All-time overview</p></div>
+
+                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                                <div className="card" style={{padding:'18px'}}>
+                                    <p className="stat-label">Products</p>
+                                    <p style={{fontSize:'32px',fontWeight:900,color:'#FFF',lineHeight:1}}>{products.length}</p>
+                                </div>
+                                <div className="card" style={{padding:'18px'}}>
+                                    <p className="stat-label">Today Sales</p>
+                                    <p style={{fontSize:'32px',fontWeight:900,color:'#FFF',lineHeight:1}}>{sales.filter(s=>new Date(s.date).toDateString()===new Date().toDateString()).length}</p>
+                                </div>
+                            </div>
+
+                            <div className="revenue-card">
+                                <p className="stat-label" style={{color:'#8B2222'}}>Total Revenue</p>
+                                <p style={{fontSize:'38px',fontWeight:900,color:'#FFF',lineHeight:1}}>Rs. {allRev.toLocaleString()}</p>
+                            </div>
+
+                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                                <div className="card" style={{padding:'18px',borderColor:'#0A2210'}}>
+                                    <p className="stat-label" style={{color:'#1E5530'}}>Net Profit</p>
+                                    <p style={{fontSize:'22px',fontWeight:900,color:'#22c55e',lineHeight:1}}>Rs. {allProfit.toLocaleString()}</p>
+                                </div>
+                                <div className="card" style={{padding:'18px',borderColor:'#221E00'}}>
+                                    <p className="stat-label" style={{color:'#5A4A00'}}>Total Cost</p>
+                                    <p style={{fontSize:'22px',fontWeight:900,color:'#eab308',lineHeight:1}}>Rs. {(allRev-allProfit).toLocaleString()}</p>
+                                </div>
+                            </div>
+
+                            {allRev > 0 && (
+                                <div className="card" style={{padding:'18px'}}>
+                                    <p className="stat-label">Profit Margin</p>
+                                    <div style={{background:'#1A1A1A',borderRadius:'100px',height:'8px',overflow:'hidden',margin:'8px 0'}}>
+                                        <div style={{height:'100%',borderRadius:'100px',background:'linear-gradient(90deg,#FF2222,#22c55e)',width:`${Math.min(100,Math.round(allProfit/allRev*100))}%`,transition:'width 0.5s'}}/>
+                                    </div>
+                                    <p style={{fontSize:'22px',fontWeight:900,color:'#FFF'}}>{Math.round(allProfit/allRev*100)}%</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* INVENTORY */}
+                    {view==='inventory' && (
+                        <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                <div><h2 style={{fontSize:'28px',fontWeight:900,color:'#FFF',margin:0}}>Stock</h2><p style={{fontSize:'11px',color:'#444',marginTop:'3px'}}>{products.length} products</p></div>
+                                <button className="btn btn-red" onClick={() => setIsAdding(true)}>+ Add Item</button>
+                            </div>
+                            <hr className="divider"/>
+                            {products.length===0 && <div style={{textAlign:'center',padding:'60px 0'}}><p style={{fontSize:'48px',marginBottom:'12px'}}>📦</p><p style={{color:'#333',fontWeight:700,fontSize:'13px'}}>No products yet. Tap Add Item.</p></div>}
+                            {products.map(p => (
+                                <div key={p.id} className="card" style={{padding:'14px',display:'flex',alignItems:'center',gap:'12px'}}>
+                                    <div style={{width:'52px',height:'52px',borderRadius:'14px',flexShrink:0,overflow:'hidden',border:'1px solid #1A1A1A',background:'#111',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',opacity:0.4}}>
+                                        {p.image ? <img src={p.image} style={{width:'100%',height:'100%',objectFit:'cover'}}/> : '📦'}
+                                    </div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                        <p style={{fontWeight:800,color:'#FFF',fontSize:'14px',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</p>
+                                        <div style={{display:'flex',gap:'10px',marginTop:'4px'}}>
+                                            <span style={{fontSize:'10px',fontWeight:700,color:'#777'}}>Sell Rs.{p.price.toLocaleString()}</span>
+                                            <span style={{fontSize:'10px',fontWeight:700,color:'#7A6400'}}>Cost Rs.{(p.cost||0).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                                        <span className={`badge ${p.quantity<=0?'badge-red':p.quantity<=3?'badge-yellow':'badge-gray'}`}>{p.quantity<=0?'OUT':`${p.quantity}`}</span>
+                                        <button className="btn btn-icon btn-danger" onClick={() => setConfirmDel(p)}>🗑</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* REPORTS */}
+                    {view==='sales' && (
+                        <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                <div><h2 style={{fontSize:'28px',fontWeight:900,color:'#FFF',margin:0}}>Reports</h2><p style={{fontSize:'11px',color:'#444',marginTop:'3px'}}>{filteredSales.length} transactions</p></div>
+                                <button className="btn btn-white btn-sm" onClick={exportPDF}>⬆ PDF</button>
+                            </div>
+                            <hr className="divider"/>
+                            <div style={{display:'flex',gap:'8px',overflowX:'auto',paddingBottom:'4px'}} className="no-scrollbar">
+                                {['all','daily','weekly','monthly'].map(t => (
+                                    <button key={t} className={`filter-pill ${filter===t?'active':''}`} onClick={() => setFilter(t)}>{t}</button>
+                                ))}
+                            </div>
+                            <div className="card" style={{padding:'18px'}}>
+                                <p className="stat-label">{filter} summary</p>
+                                <p style={{fontSize:'28px',fontWeight:900,color:'#FFF',margin:'0 0 12px'}}>Rs. {totalRev.toLocaleString()}</p>
+                                <hr className="divider"/>
+                                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginTop:'12px'}}>
+                                    <div><p className="stat-label">Net Profit</p><p style={{fontSize:'18px',fontWeight:900,color:'#22c55e'}}>Rs. {totalProfit.toLocaleString()}</p></div>
+                                    <div style={{textAlign:'right'}}><p className="stat-label">Total Cost</p><p style={{fontSize:'18px',fontWeight:900,color:'#eab308'}}>Rs. {totalCost.toLocaleString()}</p></div>
+                                </div>
+                            </div>
+                            {filteredSales.length===0 && <div style={{textAlign:'center',padding:'48px 0'}}><p style={{fontSize:'40px',marginBottom:'10px'}}>📊</p><p style={{color:'#333',fontWeight:700,fontSize:'13px'}}>No sales in this period</p></div>}
+                            {filteredSales.map(s => (
+                                <div key={s.id} className="card" style={{padding:'14px'}}>
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                                        <div>
+                                            <p style={{fontSize:'9px',color:'#333',fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase'}}>#{s.id}</p>
+                                            <p style={{fontSize:'11px',color:'#666',fontWeight:600,marginTop:'2px'}}>{new Date(s.date).toLocaleString()}</p>
+                                            <p style={{fontSize:'11px',color:'#555',marginTop:'3px'}}>{s.items.map(i=>`${i.name} ×${i.qty}`).join(', ')}</p>
+                                        </div>
+                                        <p style={{fontSize:'16px',fontWeight:900,color:'#FFF'}}>Rs. {s.total.toLocaleString()}</p>
+                                    </div>
+                                    <div style={{display:'flex',gap:'6px',marginTop:'10px'}}>
+                                        <span className="badge badge-green">+Rs.{(s.profit||0).toLocaleString()} profit</span>
+                                        <span className="badge badge-yellow">Rs.{(s.total-(s.profit||0)).toLocaleString()} cost</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* SELL */}
+                    {view==='sell_mode' && (
+                        <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+                            <div><h2 style={{fontSize:'28px',fontWeight:900,color:'#FFF',margin:0}}>Checkout</h2><p style={{fontSize:'11px',color:'#444',marginTop:'3px'}}>Tap a product to sell</p></div>
+                            <div className="input-group">
+                                <span className="input-icon">🔍</span>
+                                <input placeholder="Search products..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}/>
+                            </div>
+                            {sellFiltered.length===0 && <div style={{textAlign:'center',padding:'48px 0'}}><p style={{fontSize:'40px',marginBottom:'10px'}}>🔍</p><p style={{color:'#333',fontWeight:700,fontSize:'13px'}}>No products found</p></div>}
+                            {sellFiltered.map(p => (
+                                <div key={p.id} className={`product-row ${p.quantity<=0?'disabled':''}`} onClick={() => p.quantity>0 && setSellingProduct(p)}>
+                                    <div style={{width:'48px',height:'48px',borderRadius:'12px',flexShrink:0,overflow:'hidden',border:'1px solid #1A1A1A',background:'#111',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',opacity:0.35}}>
+                                        {p.image ? <img src={p.image} style={{width:'100%',height:'100%',objectFit:'cover'}}/> : '📦'}
+                                    </div>
+                                    <div style={{flex:1}}>
+                                        <p style={{fontWeight:800,color:'#FFF',fontSize:'14px',margin:0}}>{p.name}</p>
+                                        <p style={{fontSize:'11px',color:'#777',fontWeight:600,marginTop:'2px'}}>Rs. {p.price.toLocaleString()}</p>
+                                    </div>
+                                    <div style={{display:'flex',alignItems:'center',gap:'7px'}}>
+                                        <span className={`badge ${p.quantity<=0?'badge-red':p.quantity<=3?'badge-yellow':'badge-gray'}`}>{p.quantity<=0?'OUT':`${p.quantity} left`}</span>
+                                        {p.quantity>0 && <span className="badge badge-accent">Sell →</span>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </main>
+
+                {/* Bottom Nav */}
+                <nav className="glass" style={{position:'fixed',bottom:'12px',left:'12px',right:'12px',maxWidth:'406px',margin:'0 auto',border:'1px solid #141414',display:'flex',justifyContent:'space-around',padding:'10px 8px',borderRadius:'20px',zIndex:40,boxShadow:'0 8px 32px rgba(0,0,0,0.6)'}}>
+                    {[{id:'dashboard',label:'Home',e:'🏠'},{id:'sell_mode',label:'Sell',e:'🛒'},{id:'inventory',label:'Stock',e:'📦'},{id:'sales',label:'Report',e:'📊'}].map(item => (
+                        <button key={item.id} className={`nav-item ${view===item.id?'active':''}`} onClick={() => setView(item.id)}>
+                            <span className="nav-icon">{item.e}</span>
+                            <span className="nav-label">{item.label}</span>
+                        </button>
+                    ))}
+                </nav>
+
+                {/* Add Product Sheet */}
+                {isAdding && (
+                    <div className="anim-fade" style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(8px)',zIndex:50,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+                        <div className="card anim-slide" style={{width:'100%',maxWidth:'430px',padding:'22px 20px',borderRadius:'24px 24px 0 0',maxHeight:'92vh',overflowY:'auto'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
+                                <h3 style={{fontSize:'20px',fontWeight:900,color:'#FFF',margin:0}}>Add Product</h3>
+                                <button className="btn btn-ghost btn-icon" onClick={() => {setIsAdding(false);setProductImg(null);}}>✕</button>
+                            </div>
+                            <div onClick={() => productFileRef.current.click()} style={{width:'64px',height:'64px',borderRadius:'16px',margin:'0 auto 18px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',overflow:'hidden',border:'2px dashed #222',background:'#111',transition:'border-color 0.2s'}}>
+                                {productImg ? <img src={productImg} style={{width:'100%',height:'100%',objectFit:'cover'}}/> : <div style={{textAlign:'center'}}><div style={{fontSize:'20px'}}>📷</div><p style={{fontSize:'7px',fontWeight:800,color:'#333',textTransform:'uppercase',marginTop:'2px'}}>Photo</p></div>}
+                                <input type="file" ref={productFileRef} onChange={e=>handleFile(e,setProductImg)} style={{display:'none'}} accept="image/*"/>
+                            </div>
+                            <form onSubmit={async e => {
+                                e.preventDefault();
+                                const price = parseFloat(e.target.price.value);
+                                const cost  = parseFloat(e.target.cost.value||0);
+                                if (cost > price) { showToast('⚠ Cost cannot exceed sell price'); return; }
+                                await db.products.add({ name:e.target.pname.value, price, cost, quantity:parseInt(e.target.qty.value), image:productImg });
+                                setIsAdding(false); setProductImg(null); refreshData(); showToast('✓ Product added!');
+                            }} style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+                                <div className="input-group">
+                                    <label>Product Name</label>
+                                    <span className="input-icon">🏷</span>
+                                    <input name="pname" placeholder="e.g. Toy Car" required/>
+                                </div>
+                                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                                    <div className="input-group">
+                                        <label>Sell Price</label>
+                                        <span className="input-icon">💰</span>
+                                        <input name="price" type="number" placeholder="0" required min="0"/>
+                                    </div>
+                                    <div className="input-group">
+                                        <label>Cost Price</label>
+                                        <span className="input-icon">💸</span>
+                                        <input name="cost" type="number" placeholder="0" required min="0"/>
+                                    </div>
+                                </div>
+                                <div className="input-group">
+                                    <label>Stock Qty</label>
+                                    <span className="input-icon">🔢</span>
+                                    <input name="qty" type="number" placeholder="0" required min="1"/>
+                                </div>
+                                <div style={{display:'flex',gap:'10px',paddingTop:'4px'}}>
+                                    <button type="button" className="btn btn-ghost" style={{flex:1}} onClick={() => {setIsAdding(false);setProductImg(null);}}>Cancel</button>
+                                    <button type="submit" className="btn btn-red" style={{flex:2}}>✓ Add Product</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Sell Sheet */}
+                {sellingProduct && (
+                    <div className="anim-fade" style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(8px)',zIndex:50,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+                        <div className="card anim-slide" style={{width:'100%',maxWidth:'430px',padding:'22px 20px',borderRadius:'24px 24px 0 0'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+                                <div>
+                                    <h3 style={{fontSize:'20px',fontWeight:900,color:'#FFF',margin:0}}>Sell Item</h3>
+                                    <p style={{fontSize:'13px',fontWeight:700,color:'#FF5555',marginTop:'2px'}}>{sellingProduct.name}</p>
+                                </div>
+                                <button className="btn btn-ghost btn-icon" onClick={() => setSellingProduct(null)}>✕</button>
+                            </div>
+                            <div className="card" style={{padding:'14px',display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+                                <div><p className="stat-label">Unit Price</p><p style={{fontSize:'20px',fontWeight:900,color:'#FFF'}}>Rs. {sellingProduct.price.toLocaleString()}</p></div>
+                                <div style={{textAlign:'right'}}><p className="stat-label">In Stock</p><p style={{fontSize:'20px',fontWeight:900,color:'#22c55e'}}>{sellingProduct.quantity} pcs</p></div>
+                            </div>
+                            <form onSubmit={async e => {
+                                e.preventDefault();
+                                const qty = parseInt(e.target.qty.value);
+                                if (qty > sellingProduct.quantity) { showToast(`⚠ Only ${sellingProduct.quantity} in stock`); return; }
+                                await db.products.update(sellingProduct.id, { quantity: sellingProduct.quantity - qty });
+                                const total = sellingProduct.price * qty;
+                                const cost  = (sellingProduct.cost||0) * qty;
+                                await db.sales.add({ date:new Date(), items:[{name:sellingProduct.name, price:sellingProduct.price, cost:sellingProduct.cost||0, qty}], total, profit:total-cost });
+                                setSellingProduct(null); refreshData(); showToast(`✓ Sold ${qty}× ${sellingProduct.name}`);
+                            }} style={{display:'flex',flexDirection:'column',gap:'14px'}}>
+                                <div className="input-group">
+                                    <label>Quantity to Sell</label>
+                                    <span className="input-icon">🔢</span>
+                                    <input name="qty" type="number" min="1" max={sellingProduct.quantity} defaultValue="1" required style={{textAlign:'center',fontSize:'26px',fontWeight:900}}/>
+                                </div>
+                                <div style={{display:'flex',gap:'10px'}}>
+                                    <button type="button" className="btn btn-ghost" style={{flex:1}} onClick={() => setSellingProduct(null)}>Cancel</button>
+                                    <button type="submit" className="btn btn-red" style={{flex:2}}>✓ Complete Sale</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirm */}
+                {confirmDel && (
+                    <div className="anim-fade" style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',backdropFilter:'blur(8px)',zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+                        <div className="card anim-slide" style={{width:'100%',maxWidth:'300px',padding:'24px',textAlign:'center'}}>
+                            <p style={{fontSize:'40px',marginBottom:'12px'}}>🗑</p>
+                            <h3 style={{fontSize:'17px',fontWeight:900,color:'#FFF',margin:'0 0 8px'}}>Delete Product?</h3>
+                            <p style={{fontSize:'13px',color:'#555',marginBottom:'20px'}}>"{confirmDel.name}" will be removed permanently.</p>
+                            <div style={{display:'flex',gap:'10px'}}>
+                                <button className="btn btn-ghost" style={{flex:1}} onClick={() => setConfirmDel(null)}>Cancel</button>
+                                <button className="btn btn-danger" style={{flex:1}} onClick={() => deleteProduct(confirmDel.id)}>Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <Toast msg={toast}/>
+            </div>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
